@@ -5,9 +5,20 @@ Talk instead of type. Hold a hotkey, speak, and let go: the text appears where y
 SpeechToText lives in the Windows tray. It records only while you hold a hotkey, and sends that recording only to the endpoint you choose.
 
 ## Quick start
-1. `dotnet run --project src/SpeechToText`. Settings opens the first time you run it.
+1. Run `.\install.ps1`. It builds one `SpeechToText.exe`, installs it for you (no admin needed), adds it to the Start menu and starts it. Settings opens the first time.
 2. In **Transcription**, pick a provider and paste an API key, then press **Test**.
 3. Click into any text box, hold `Ctrl+Alt+Space`, talk, and let go.
+
+| | |
+|---|---|
+| Update | Run `.\install.ps1` again. It closes the running copy and replaces it. |
+| Uninstall | `.\install.ps1 -Uninstall`. Your settings and saved keys are kept. |
+| Develop | `dotnet run --project src/SpeechToText` |
+
+**Sizes:**
+- The app is one self-contained 127 MB `.exe` in `%LOCALAPPDATA%\Programs\SpeechToText`. It needs no .NET install.
+- While idle in the tray it uses about 75 MB of RAM (21 MB private).
+- Building needs the .NET 10 SDK.
 
 ## Hotkeys
 You can change both in Settings → General.

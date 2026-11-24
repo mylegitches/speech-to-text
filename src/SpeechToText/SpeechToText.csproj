@@ -13,6 +13,23 @@
     <!-- OML family mark, byte-for-byte from owmycontext branding/assets/oml/favicon.ico -->
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <Product>SpeechToText</Product>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+  <!--
+    Release publish: one self-contained SpeechToText.exe, no .NET install needed.
+    Compression is off on purpose. Measured 2026-11-24:
+      compressed   59 MB exe, 187 MB RAM (87 MB private)
+      uncompressed 127 MB exe, 75 MB RAM (21 MB private)
+    A tray app runs all day, so memory wins over disk. WPF cannot be trimmed.
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <DebugType>none</DebugType>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 
   <ItemGroup>
