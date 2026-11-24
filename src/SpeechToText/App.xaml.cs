@@ -35,8 +35,12 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // One instance. Launching it again (Start menu, desktop) asks the running copy to open Settings.
+        _showSettings = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\SpeechToText.ShowSettings");
         _single = new Mutex(true, @"Local\SpeechToText.Tray", out bool first);
-        if (!first) { Shutdown(); return; }
+        if (!first) { _showSettings.Set(); Shutdown(); return; }
+        new Thread(() => { while (_showSettings.WaitOne()) Dispatcher.BeginInvoke(OpenSettings); })
+            { IsBackground = true, Name = "ShowSettingsListener" }.Start();
 
         // A tray app should never vanish silently: log, tell the user, keep running.
         DispatcherUnhandledException += (_, ex) =>
@@ -66,12 +70,13 @@ public partial class App : Application
         CreateTray();
         ApplySettings();
 
-        if (!File.Exists(Path.Combine(AppSettings.Dir, "settings.json")))
-        {
-            Settings.Save();
-            OpenSettings(); // first run
-        }
+        bool firstRun = !File.Exists(Path.Combine(AppSettings.Dir, "settings.json"));
+        if (firstRun) Settings.Save();
+        // Started by hand → show Settings so it's obvious it's running. At sign-in (--background) stay in the tray.
+        if (firstRun || !e.Args.Contains(Config.Startup.BackgroundArg)) OpenSettings();
     }
+
+    EventWaitHandle? _showSettings;
 
     public void ApplySettings()
     {

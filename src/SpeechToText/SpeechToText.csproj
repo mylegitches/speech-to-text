@@ -39,6 +39,7 @@
   <ItemGroup>
     <PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
     <PackageReference Include="NAudio.WinMM" Version="3.3.0" />
+    <PackageReference Include="Whisper.net" Version="1.9.1" />
   </ItemGroup>
 
 </Project>

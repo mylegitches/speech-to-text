@@ -69,7 +69,7 @@ $link.Save()
 
 # 4. Keep "Start with Windows" pointing at the installed copy
 if (Get-ItemProperty -Path $runKey -Name $name -ErrorAction SilentlyContinue) {
-    Set-ItemProperty -Path $runKey -Name $name -Value "`"$exe`""
+    Set-ItemProperty -Path $runKey -Name $name -Value "`"$exe`" --background"
 }
 
 $mb = [math]::Round((Get-Item $exe).Length / 1MB, 1)

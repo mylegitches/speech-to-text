@@ -7,6 +7,8 @@ public static class Startup
 {
     const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     const string Name = "SpeechToText";
+    /// <summary>Passed when Windows starts the app at sign-in, so it stays in the tray.</summary>
+    public const string BackgroundArg = "--background";
 
     public static bool IsEnabled
     {
@@ -17,7 +19,7 @@ public static class Startup
     {
         using var k = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
         if (k == null) return;
-        if (on) k.SetValue(Name, $"\"{Environment.ProcessPath}\"");
+        if (on) k.SetValue(Name, $"\"{Environment.ProcessPath}\" {BackgroundArg}");
         else if (k.GetValue(Name) != null) k.DeleteValue(Name);
     }
 }

@@ -136,19 +136,32 @@
                     <Border Style="{StaticResource Card}">
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition/></Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                            <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
                             <TextBlock Style="{StaticResource Lbl}" Text="Provider"/>
                             <ComboBox x:Name="Provider" Grid.Column="1" HorizontalAlignment="Left" DisplayMemberPath="Name" MinWidth="280"/>
                             <TextBlock Style="{StaticResource Lbl}" Grid.Row="1" Text="Model"/>
                             <ComboBox x:Name="Model" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Left" IsEditable="True" MinWidth="280"/>
                             <TextBlock x:Name="BaseUrlLabel" Style="{StaticResource Lbl}" Grid.Row="2" Text="Base URL"/>
                             <TextBox x:Name="BaseUrl" Style="{StaticResource MonoBox}" Grid.Row="2" Grid.Column="1"/>
-                            <TextBlock Style="{StaticResource Lbl}" Grid.Row="3" Text="API key"/>
-                            <DockPanel Grid.Row="3" Grid.Column="1">
+                            <TextBlock x:Name="ApiKeyLabel" Style="{StaticResource Lbl}" Grid.Row="3" Text="API key"/>
+                            <DockPanel x:Name="ApiKeyRow" Grid.Row="3" Grid.Column="1">
                                 <Button x:Name="TestKey" DockPanel.Dock="Right" Content="Test" Margin="8,3,0,3" MinWidth="72" Click="TestKey_Click"/>
                                 <PasswordBox x:Name="ApiKey"/>
                             </DockPanel>
-                            <TextBlock x:Name="TestResult" Grid.Row="4" Grid.Column="1" Style="{StaticResource Hint}"/>
+
+                            <!-- On this PC (offline) -->
+                            <TextBlock x:Name="LocalDeviceLabel" Style="{StaticResource Lbl}" Grid.Row="4" Text="Run on"/>
+                            <ComboBox x:Name="LocalDeviceBox" Grid.Row="4" Grid.Column="1" HorizontalAlignment="Left" MinWidth="280"/>
+                            <StackPanel x:Name="LocalFiles" Grid.Row="5" Grid.Column="1" Margin="0,6,0,0">
+                                <DockPanel>
+                                    <Button x:Name="LocalTest" DockPanel.Dock="Right" Content="Test" Margin="8,0,0,0" MinWidth="72" Click="LocalTest_Click"/>
+                                    <Button x:Name="LocalDownload" DockPanel.Dock="Right" Content="Download" MinWidth="110" Click="LocalDownload_Click"/>
+                                    <TextBlock x:Name="LocalStatus" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"/>
+                                </DockPanel>
+                                <ProgressBar x:Name="LocalProgress" Maximum="1" Height="4" Margin="0,8,0,0" Visibility="Collapsed"/>
+                            </StackPanel>
+
+                            <TextBlock x:Name="TestResult" Grid.Row="6" Grid.Column="1" Style="{StaticResource Hint}"/>
                         </Grid>
                     </Border>
                     <Border Style="{StaticResource Card}">
@@ -164,8 +177,9 @@
                         <StackPanel>
                             <TextBlock Style="{StaticResource Eyebrow}" Text="TEXT STYLE"/>
                             <RadioButton x:Name="StyleRaw" GroupName="Style" Content="Raw — exactly what you said"/>
-                            <RadioButton x:Name="StylePolished" GroupName="Style" Margin="0,6,0,0"
-                                         Content="Polished — punctuation, grammar and flow fixed; fillers and false starts removed"/>
+                            <RadioButton x:Name="StylePolished" GroupName="Style" Margin="0,6,0,0">
+                                <TextBlock TextWrapping="Wrap" Text="Polished — punctuation, grammar and flow fixed; fillers and false starts removed"/>
+                            </RadioButton>
                             <Grid x:Name="PolishPanel" Margin="0,12,0,0">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition/></Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
@@ -188,7 +202,7 @@
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
                             <TextBlock Style="{StaticResource Eyebrow}" Text="WHAT LEAVES YOUR PC"/>
-                            <TextBlock TextWrapping="Wrap" Text="Only your recording, and only after you press a hotkey. It goes to the endpoint you pick above, which returns the text. With Polished on, that text is also sent to the polish model. Nothing is recorded in the background, and audio is never saved to disk."/>
+                            <TextBlock TextWrapping="Wrap" Text="Only your recording, and only after you press a hotkey. It goes to the endpoint you pick above, which returns the text. With “On this PC”, nothing leaves your PC at all. With Polished on, the text is also sent to the polish model. Nothing is recorded in the background, and audio is never saved to disk."/>
                             <TextBlock Style="{StaticResource Hint}" Text="API keys are kept in Windows Credential Manager, not in the settings file. To keep everything on this PC, choose “Any OpenAI-compatible endpoint” and point it at a local server such as Speaches or LocalAI."/>
                         </StackPanel>
                     </Border>

@@ -12,6 +12,7 @@ SpeechToText lives in the Windows tray. It records only while you hold a hotkey,
 | | |
 |---|---|
 | Update | Run `.\install.ps1` again. It closes the running copy and replaces it. |
+| Open Settings | Start SpeechToText from the Start menu. If it's already running, that opens its Settings. |
 | Uninstall | `.\install.ps1 -Uninstall`. Your settings and saved keys are kept. |
 | Develop | `dotnet run --project src/SpeechToText` |
 
@@ -38,7 +39,25 @@ Each hotkey has its own mode:
 ## Transcription
 You can use Groq, OpenAI, or **any OpenAI-compatible endpoint**, such as Speaches, LocalAI or faster-whisper-server running on your PC or NAS.
 
-**What leaves your PC:** only the recording, only after you press a hotkey, and only to the endpoint you chose. Audio is never written to disk. API keys are kept in Windows Credential Manager, not in the settings file. To keep everything local, point it at a server on your own machine.
+**What leaves your PC:** only the recording, only after you press a hotkey, and only to the endpoint you chose. Audio is never written to disk. API keys are kept in Windows Credential Manager, not in the settings file.
+
+### On this PC (offline)
+Pick **On this PC** to run Whisper on your own machine. Nothing leaves your PC.
+- **Device:** chosen automatically. NVIDIA with the CUDA Toolkit is tried first, then any GPU through Vulkan, then the CPU. You can override it.
+- **One-time download:** press **Download**. You get the model plus the runtime for your device. Downloads are checked against their published SHA-256.
+
+| Model | Size | Measured on an Intel Arc 140V (Vulkan), 10 s of speech |
+|---|---|---|
+| large-v3, best accuracy (default) | 2.9 GB | 3.0 s (first run 10.6 s), 3.3 GB RAM while loaded |
+| large-v3-turbo (q8), nearly as accurate | 834 MB | 2.0 s (first run 7.4 s), 1.2 GB RAM while loaded |
+
+**Runtimes:**
+- CPU: 2 MB
+- Vulkan: 57 MB
+- CUDA 13: 150 MB
+- CUDA 12: 540 MB
+
+The model is unloaded after 5 idle minutes, so it doesn't hold memory while you're not dictating. On CPU alone, expect several times your recording length; that test PC needed 27 s for 10 s of speech.
 
 ## Notes
 Turn on as many targets as you like:
@@ -53,6 +72,7 @@ Turn on as many targets as you like:
 
 ## Files
 - Settings: `%APPDATA%\SpeechToText\settings.json`
+- Offline models and runtimes: `%LOCALAPPDATA%\SpeechToText\whisper`
 - Error log: `%APPDATA%\SpeechToText\error.log`
 
 ## Branding

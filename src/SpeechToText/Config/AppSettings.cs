@@ -7,6 +7,7 @@ namespace SpeechToText.Config;
 public enum HotkeyMode { Smart, Hold, Toggle }
 public enum DictateOutput { Paste, Notes, Both }
 public enum TextStyle { Raw, Polished }
+public enum LocalDevice { Auto, Cuda, Vulkan, Cpu }
 
 public sealed class ProviderSettings
 {
@@ -65,6 +66,9 @@ public sealed class AppSettings
             PolishProviders[providerId] = p = new ProviderSettings();
         return p;
     }
+
+    /// <summary>Which hardware runs the on-device Whisper model. Auto = best one detected.</summary>
+    public LocalDevice LocalDevice { get; set; } = LocalDevice.Auto;
 
     /// <summary>ISO-639-1 code, or empty for auto-detect.</summary>
     public string Language { get; set; } = "";

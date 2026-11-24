@@ -7,6 +7,7 @@ using Microsoft.Win32;
 using SpeechToText.Audio;
 using SpeechToText.Config;
 using SpeechToText.Input;
+using SpeechToText.Local;
 using SpeechToText.Output;
 using SpeechToText.Providers;
 
@@ -19,6 +20,8 @@ public partial class SettingsWindow : Window
     readonly AppSettings _s;
     readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
     readonly Recorder _testRecorder = new();
+    readonly Hardware _hw = GpuDetect.Detect();
+    CancellationTokenSource? _download;
     bool _loading = true;
 
     static readonly (string Label, int Seconds)[] Lengths = [("1 minute", 60), ("2 minutes", 120), ("5 minutes", 300), ("10 minutes", 600)];
@@ -34,6 +37,14 @@ public partial class SettingsWindow : Window
         DictateOutput.ItemsSource = new[] { "Paste at cursor", "Notes", "Paste and notes" };
         Provider.ItemsSource = Transcriber.All;
         PolishProvider.ItemsSource = Polisher.All;
+        // Order matches the LocalDevice enum: Auto, Cuda, Vulkan, Cpu. Unavailable ones are shown but disabled.
+        LocalDeviceBox.ItemsSource = new[]
+        {
+            new ComboBoxItem { Content = $"Auto — {_hw.Describe(_hw.Best)}" },
+            new ComboBoxItem { Content = _hw.Cuda ? $"NVIDIA GPU (CUDA {_hw.CudaMajor})" : "NVIDIA GPU (CUDA) — not found", IsEnabled = _hw.Cuda },
+            new ComboBoxItem { Content = _hw.Vulkan ? "GPU (Vulkan)" : "GPU (Vulkan) — not found", IsEnabled = _hw.Vulkan },
+            new ComboBoxItem { Content = "CPU — slow: several times your recording length" },
+        };
         Mic.ItemsSource = new[] { "Windows default" }.Concat(Recorder.Devices()).ToList();
         MaxSeconds.ItemsSource = Lengths.Select(l => l.Label).ToList();
 
@@ -47,6 +58,13 @@ public partial class SettingsWindow : Window
         AddHandler(Selector.SelectionChangedEvent, new RoutedEventHandler(Changed));
         AddHandler(PasswordBox.PasswordChangedEvent, new RoutedEventHandler(Changed));
         Provider.SelectionChanged += (_, _) => { if (!_loading) LoadProvider(); };
+        Model.SelectionChanged += (_, _) => { if (!_loading) Dispatcher.BeginInvoke(RefreshLocal); };
+        LocalDeviceBox.SelectionChanged += (_, _) =>
+        {
+            if (_loading) return;
+            _s.LocalDevice = (LocalDevice)LocalDeviceBox.SelectedIndex;
+            RefreshLocal();
+        };
         PolishProvider.SelectionChanged += (_, _) => { if (!_loading) LoadPolisher(); };
         StylePolished.Checked += (_, _) => PolishPanel.Visibility = Visibility.Visible;
         StylePolished.Unchecked += (_, _) => PolishPanel.Visibility = Visibility.Collapsed;
@@ -54,7 +72,7 @@ public partial class SettingsWindow : Window
         foreach (var box in new[] { DictateHotkey, NoteHotkey }) WireHotkeyBox(box);
 
         _testRecorder.Level += l => Dispatcher.BeginInvoke(() => MicLevel.Value = l);
-        Closed += (_, _) => { _testRecorder.Dispose(); if (_saveTimer.IsEnabled) Save(); };
+        Closed += (_, _) => { _download?.Cancel(); _testRecorder.Dispose(); if (_saveTimer.IsEnabled) Save(); };
     }
 
     void LoadFromSettings()
@@ -100,7 +118,108 @@ public partial class SettingsWindow : Window
         BaseUrl.Visibility = BaseUrlLabel.Visibility = info.CustomUrl ? Visibility.Visible : Visibility.Collapsed;
         ApiKey.Password = SecretStore.Get(info.Id) ?? "";
         TestResult.Text = "";
+
+        bool local = Transcriber.IsLocal(info.Id);
+        ApiKeyLabel.Visibility = ApiKeyRow.Visibility = local ? Visibility.Collapsed : Visibility.Visible;
+        LocalDeviceLabel.Visibility = LocalDeviceBox.Visibility = LocalFiles.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
+        LocalDeviceBox.SelectedIndex = (int)_s.LocalDevice;
         _loading = was;
+        if (local) RefreshLocal();
+    }
+
+    // ---- On this PC (offline) ----
+
+    LocalModel SelectedLocalModel => LocalWhisper.Model(ProviderInfo.ModelId(Model.Text));
+
+    static string RuntimeSize(LocalDevice d, Hardware hw) => d switch
+    {
+        LocalDevice.Cuda => hw.CudaMajor == 12 ? "540 MB" : "150 MB",
+        LocalDevice.Vulkan => "57 MB",
+        _ => "2 MB",
+    };
+
+    void RefreshLocal()
+    {
+        if (!Transcriber.IsLocal(_s.Provider) && Provider.SelectedItem is ProviderInfo p && !Transcriber.IsLocal(p.Id)) return;
+        if (_download != null) return; // progress owns the status while downloading
+        var model = SelectedLocalModel;
+        var device = _hw.Resolve((LocalDevice)Math.Max(0, LocalDeviceBox.SelectedIndex));
+        bool ready = LocalWhisper.IsDownloaded(model) && LocalWhisper.RuntimeReady(device) && LocalWhisper.RuntimeReady(LocalDevice.Cpu);
+
+        if (ready)
+        {
+            LocalStatus.Text = $"✓ Ready · {model.Size} model on this PC";
+            LocalDownload.Content = "Delete model";
+        }
+        else
+        {
+            var needs = new List<string>();
+            if (!LocalWhisper.IsDownloaded(model)) needs.Add($"{model.Size} model");
+            if (!LocalWhisper.RuntimeReady(device)) needs.Add($"{RuntimeSize(device, _hw)} {_hw.Describe(device).Split(" (").Last().TrimEnd(')')} runtime");
+            LocalStatus.Text = "One-time download: " + string.Join(" + ", needs);
+            LocalDownload.Content = "Download";
+        }
+        LocalTest.IsEnabled = ready;
+        if (LocalWhisper.NeedsRestartFor(device))
+            LocalStatus.Text += $"\nRestart SpeechToText to switch from {LocalWhisper.LoadedRuntime} to {device}.";
+    }
+
+    async void LocalDownload_Click(object sender, RoutedEventArgs e)
+    {
+        if (_download != null) { _download.Cancel(); return; } // button reads "Cancel" while downloading
+
+        var model = SelectedLocalModel;
+        var device = _hw.Resolve((LocalDevice)LocalDeviceBox.SelectedIndex);
+        bool ready = LocalWhisper.IsDownloaded(model) && LocalWhisper.RuntimeReady(device);
+        if (ready)
+        {
+            var answer = MessageBox.Show(this, $"Delete the {model.Id} model ({model.Size})? You can download it again later.",
+                "Delete model · SpeechToText", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+            if (answer == MessageBoxResult.OK) LocalWhisper.DeleteModel(model);
+            RefreshLocal();
+            return;
+        }
+
+        _download = new CancellationTokenSource();
+        LocalDownload.Content = "Cancel";
+        LocalTest.IsEnabled = false;
+        LocalProgress.Visibility = Visibility.Visible;
+        var progress = new Progress<(string What, double Done)>(p =>
+        {
+            LocalProgress.Value = p.Done;
+            LocalStatus.Text = $"Downloading {p.What}… {p.Done:P0}";
+        });
+        try
+        {
+            await LocalWhisper.EnsureRuntimeAsync(device, progress, _download.Token);
+            if (!LocalWhisper.IsDownloaded(model)) await LocalWhisper.DownloadModelAsync(model, progress, _download.Token);
+            TestResult.Text = "✓ Downloaded and verified. Press Test to try it.";
+        }
+        catch (OperationCanceledException) { TestResult.Text = "Download cancelled."; }
+        catch (Exception ex) { TestResult.Text = "✗ " + ex.Message + " Check your connection and try again."; }
+        finally
+        {
+            _download.Dispose();
+            _download = null;
+            LocalProgress.Visibility = Visibility.Collapsed;
+            RefreshLocal();
+        }
+    }
+
+    async void LocalTest_Click(object sender, RoutedEventArgs e)
+    {
+        Save();
+        LocalTest.IsEnabled = false;
+        TestResult.Text = "Loading the model and transcribing 1 s of silence… the first run takes longest.";
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            await Task.Run(() => Transcriber.TranscribeAsync(_s, Recorder.ToWav(new byte[16000 * 2])));
+            TestResult.Text = $"✓ Works on {LocalWhisper.LoadedRuntime} · {sw.Elapsed.TotalSeconds:0.0} s including loading the model. " +
+                              "The model stays loaded for 5 minutes after each use, so later dictations are faster.";
+        }
+        catch (Exception ex) { TestResult.Text = "✗ " + ex.Message; }
+        finally { LocalTest.IsEnabled = true; }
     }
 
     void LoadPolisher()
@@ -143,6 +262,7 @@ public partial class SettingsWindow : Window
         if (info.CustomUrl) ps.BaseUrl = BaseUrl.Text.Trim();
         SecretStore.Set(info.Id, ApiKey.Password.Trim());
         _s.Language = LanguageBox.Text.Trim().ToLowerInvariant();
+        if (LocalDeviceBox.SelectedIndex >= 0) _s.LocalDevice = (LocalDevice)LocalDeviceBox.SelectedIndex;
 
         _s.TextStyle = StylePolished.IsChecked == true ? TextStyle.Polished : TextStyle.Raw;
         var pinfo = (ProviderInfo)PolishProvider.SelectedItem;

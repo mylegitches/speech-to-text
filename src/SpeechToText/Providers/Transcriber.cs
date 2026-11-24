@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using SpeechToText.Config;
+using SpeechToText.Local;
 
 namespace SpeechToText.Providers;
 
@@ -33,7 +34,10 @@ public static class Transcriber
         new("openai", "OpenAI", "https://api.openai.com/v1",
             ["gpt-4o-transcribe — best accuracy", "gpt-4o-mini-transcribe — faster and cheaper, less accurate"]),
         new("custom", "Any OpenAI-compatible endpoint", "http://localhost:8000/v1", [], CustomUrl: true),
+        new("local", "On this PC (offline)", "", LocalWhisper.Models.Select(m => $"{m.Id} — {m.Label.Split(" — ")[1]} ({m.Size})").ToArray()),
     ];
+
+    public static bool IsLocal(string providerId) => providerId == "local";
 
     /// <summary>
     /// Whisper-family models copy the style of the prompt. A clean, punctuated sentence makes them
@@ -48,6 +52,11 @@ public static class Transcriber
     public static async Task<string> TranscribeAsync(AppSettings settings, byte[] wav, CancellationToken ct = default)
     {
         var info = Get(settings.Provider);
+        string? prompt = settings.Language is "" or "en" ? StylePrompt : null;
+        // Off the UI thread: model loading and inference take seconds, and the UI thread also runs
+        // the low-level keyboard hook, which would stall every keystroke system-wide if blocked.
+        if (IsLocal(info.Id)) return await Task.Run(() => LocalWhisper.TranscribeAsync(settings, wav, prompt, ct), ct);
+
         var ps = settings.For(info.Id);
         var baseUrl = (info.CustomUrl && ps.BaseUrl.Length > 0 ? ps.BaseUrl : info.BaseUrl).TrimEnd('/');
         var model = ps.Model.Length > 0 ? ProviderInfo.ModelId(ps.Model) : info.DefaultModel;
@@ -62,7 +71,7 @@ public static class Transcriber
         if (model.Length > 0) form.Add(new StringContent(model), "model");
         if (settings.Language.Length > 0) form.Add(new StringContent(settings.Language), "language");
         // The style prompt is English; for other languages it would bias the output, so skip it.
-        if (settings.Language is "" or "en") form.Add(new StringContent(StylePrompt), "prompt");
+        if (prompt != null) form.Add(new StringContent(prompt), "prompt");
         form.Add(new StringContent("json"), "response_format");
 
         using var req = new HttpRequestMessage(HttpMethod.Post, baseUrl + "/audio/transcriptions") { Content = form };
