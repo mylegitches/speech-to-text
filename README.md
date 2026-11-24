@@ -70,6 +70,14 @@ Turn on as many targets as you like:
 | Notion | Added as a bullet on a Notion page. The note is sent to Notion |
 | Webhook | A JSON POST to a URL you choose. Use Zapier, Make or n8n to reach Evernote, OneNote, Todoist and others |
 
+### Notes manager
+Open it by double-tapping the Note hotkey (Hold mode), from the tray (**Notes…**), or with `SpeechToText.exe --notes`. It lists your QuickNotes file newest first.
+- Search with `Ctrl+F`.
+- Double-click a note to edit it; Enter saves.
+- Copy a note with its copy button.
+- **Delete is reversible.** A deleted note moves to `my_notes.deleted.txt` next to your notes file, and **Undo** puts it back where it was.
+- Notes saved while the window is open appear right away.
+
 ## Files
 - Settings: `%APPDATA%\SpeechToText\settings.json`
 - Offline models and runtimes: `%LOCALAPPDATA%\SpeechToText\whisper`

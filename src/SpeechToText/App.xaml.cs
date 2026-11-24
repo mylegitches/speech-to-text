@@ -36,11 +36,17 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         // One instance. Launching it again (Start menu, desktop) asks the running copy to open Settings.
+        // "--notes" opens the notes manager instead.
+        bool wantsNotes = e.Args.Contains(NotesArg);
         _showSettings = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\SpeechToText.ShowSettings");
+        _showNotes = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\SpeechToText.ShowNotes");
         _single = new Mutex(true, @"Local\SpeechToText.Tray", out bool first);
-        if (!first) { _showSettings.Set(); Shutdown(); return; }
-        new Thread(() => { while (_showSettings.WaitOne()) Dispatcher.BeginInvoke(OpenSettings); })
-            { IsBackground = true, Name = "ShowSettingsListener" }.Start();
+        if (!first) { (wantsNotes ? _showNotes : _showSettings).Set(); Shutdown(); return; }
+        Listen(_showSettings, () => OpenSettings());
+        Listen(_showNotes, () => OpenNotes());
+
+        void Listen(EventWaitHandle signal, Action open) =>
+            new Thread(() => { while (signal.WaitOne()) Dispatcher.BeginInvoke(open); }) { IsBackground = true }.Start();
 
         // A tray app should never vanish silently: log, tell the user, keep running.
         DispatcherUnhandledException += (_, ex) =>
@@ -64,8 +70,15 @@ public partial class App : Application
         _note = new TriggerLogic(() => Settings.NoteMode);
         _note.Start += () => StartSession(Session.Note, _note);
         _note.Stop += StopSession;
-        // A quick tap on the note hotkey (in Hold mode) opens the typed-note box, like Quick Notes did.
-        _note.Cancel += () => { CancelSession(); ShowTextNote(); };
+        // In Hold mode a quick tap on the note hotkey opens the typed-note box and a double-tap opens
+        // the notes manager, like Quick Notes did. The first tap waits briefly to see if a second follows.
+        _tapTimer.Tick += (_, _) => { _tapTimer.Stop(); ShowTextNote(); };
+        _note.Cancel += () =>
+        {
+            CancelSession();
+            if (_tapTimer.IsEnabled) { _tapTimer.Stop(); OpenNotes(); }
+            else _tapTimer.Start();
+        };
 
         CreateTray();
         ApplySettings();
@@ -73,10 +86,23 @@ public partial class App : Application
         bool firstRun = !File.Exists(Path.Combine(AppSettings.Dir, "settings.json"));
         if (firstRun) Settings.Save();
         // Started by hand → show Settings so it's obvious it's running. At sign-in (--background) stay in the tray.
-        if (firstRun || !e.Args.Contains(Config.Startup.BackgroundArg)) OpenSettings();
+        if (wantsNotes) OpenNotes();
+        else if (firstRun || !e.Args.Contains(Config.Startup.BackgroundArg)) OpenSettings();
     }
 
-    EventWaitHandle? _showSettings;
+    const string NotesArg = "--notes";
+    EventWaitHandle? _showSettings, _showNotes;
+    readonly DispatcherTimer _tapTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
+    NotesWindow? _notesWindow;
+
+    public void OpenNotes()
+    {
+        if (_notesWindow != null) { _notesWindow.Activate(); return; }
+        _notesWindow = new NotesWindow(this);
+        _notesWindow.Closed += (_, _) => _notesWindow = null;
+        _notesWindow.Show();
+        _notesWindow.Activate();
+    }
 
     public void ApplySettings()
     {
@@ -227,7 +253,7 @@ public partial class App : Application
         else if (flash) _pill.Flash("Saved to notes");
     }
 
-    void ShowTextNote() =>
+    public void ShowTextNote() =>
         new TextNoteWindow(this, (text, dictated) => SaveNote(text, dictated ? NoteKind.Voice : NoteKind.Text, flash: true)).Show();
 
     // ---- tray ----
@@ -244,6 +270,7 @@ public partial class App : Application
         var menu = new ContextMenu();
         menu.Items.Add(Item("Settings…", OpenSettings));
         menu.Items.Add(Item("New note…", ShowTextNote));
+        menu.Items.Add(Item("Notes…", OpenNotes));
         menu.Items.Add(Item("Copy last transcript", () => { if (_lastTranscript.Length > 0) Clipboard.SetText(_lastTranscript); }));
         menu.Items.Add(new Separator());
         menu.Items.Add(_providerMenu);
