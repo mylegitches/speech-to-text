@@ -1,0 +1,274 @@
+<Window x:Class="SpeechToText.UI.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Settings · SpeechToText" Width="780" Height="620" MinWidth="620" MinHeight="460"
+        WindowStartupLocation="CenterScreen" Style="{StaticResource BrandWindow}">
+    <Window.Resources>
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Surface}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusCard}"/>
+            <Setter Property="Padding" Value="16,14"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+        <Style x:Key="H" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,0,0,14"/>
+        </Style>
+        <Style x:Key="Lbl" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,12,0"/>
+            <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+        </Style>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,6,0,0"/>
+        </Style>
+        <!-- Eyebrow: small uppercase card title in accent-text -->
+        <Style x:Key="Eyebrow" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource AccentText}"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+        <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+            <Setter Property="MinWidth" Value="200"/>
+            <Setter Property="Margin" Value="0,3"/>
+        </Style>
+        <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="Margin" Value="0,3"/>
+        </Style>
+        <Style TargetType="PasswordBox" BasedOn="{StaticResource {x:Type PasswordBox}}">
+            <Setter Property="Margin" Value="0,3"/>
+        </Style>
+        <!-- Paths, URLs, IDs and key combos use the mono stack -->
+        <Style x:Key="MonoBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="Margin" Value="0,3"/>
+            <Setter Property="FontFamily" Value="{StaticResource Mono}"/>
+            <Setter Property="FontSize" Value="12.5"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200"/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Sidebar -->
+        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="0,0,1,0">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="18,18,0,14">
+                    <!-- OML mark: owmycontext favicon.svg trace, approved dark-mode stroke #4cc26a -->
+                    <Viewbox Width="22" Height="22" AutomationProperties.Name="SpeechToText logo">
+                        <Canvas Width="256" Height="256">
+                            <Path Data="M128 30.5V225.5M30.5 128H225.5M128 128L60 196M128 128L196 196" Stroke="{StaticResource AccentText}"
+                                  StrokeThickness="43" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        </Canvas>
+                    </Viewbox>
+                    <TextBlock Text="SpeechToText" FontWeight="Bold" FontSize="15" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+                <ListBox x:Name="Nav" Margin="8,0" BorderThickness="0" Background="Transparent" SelectionChanged="Nav_Changed">
+                    <ListBoxItem Tag="General" IsSelected="True"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE713;" Margin="0,2,12,0"/><TextBlock Text="General"/></StackPanel></ListBoxItem>
+                    <ListBoxItem Tag="Transcription"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8D4;" Margin="0,2,12,0"/><TextBlock Text="Transcription"/></StackPanel></ListBoxItem>
+                    <ListBoxItem Tag="Notes"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE70B;" Margin="0,2,12,0"/><TextBlock Text="Notes"/></StackPanel></ListBoxItem>
+                    <ListBoxItem Tag="Audio"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE720;" Margin="0,2,12,0"/><TextBlock Text="Audio"/></StackPanel></ListBoxItem>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="24,20,24,16">
+            <Grid MaxWidth="760" HorizontalAlignment="Left">
+                <!-- ===== General ===== -->
+                <StackPanel x:Name="General">
+                    <TextBlock Style="{StaticResource H}" Text="General"/>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource Eyebrow}" Text="DICTATE → TYPES WHERE YOUR CURSOR IS"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                                <TextBlock Style="{StaticResource Lbl}" Text="Hotkey"/>
+                                <TextBox x:Name="DictateHotkey" Style="{StaticResource MonoBox}" Grid.Column="1" IsReadOnly="True" Cursor="Hand"/>
+                                <TextBlock Style="{StaticResource Lbl}" Grid.Row="1" Text="Mode"/>
+                                <ComboBox x:Name="DictateMode" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Left"/>
+                                <TextBlock Style="{StaticResource Lbl}" Grid.Row="2" Text="Send to"/>
+                                <ComboBox x:Name="DictateOutput" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Left"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource Eyebrow}" Text="NOTE → SAVES TO YOUR NOTE APPS"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                                <TextBlock Style="{StaticResource Lbl}" Text="Hotkey"/>
+                                <TextBox x:Name="NoteHotkey" Style="{StaticResource MonoBox}" Grid.Column="1" IsReadOnly="True" Cursor="Hand"/>
+                                <TextBlock Style="{StaticResource Lbl}" Grid.Row="1" Text="Mode"/>
+                                <ComboBox x:Name="NoteMode" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Left"/>
+                            </Grid>
+                            <TextBlock Style="{StaticResource Hint}" Text="In Hold mode, a quick tap opens a box where you can type a note instead."/>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Style="{StaticResource Hint}" Margin="4,0,0,14"
+                               Text="Click a hotkey box, then press the new combination. Smart: tap to start and stop, or hold to talk. Esc cancels a recording."/>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="StartWithWindows" Content="Start with Windows"/>
+                            <CheckBox x:Name="Sounds" Content="Play start and stop sounds" Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ===== Transcription ===== -->
+                <StackPanel x:Name="Transcription" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource H}" Text="Transcription"/>
+                    <Border Style="{StaticResource Card}">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                            <TextBlock Style="{StaticResource Lbl}" Text="Provider"/>
+                            <ComboBox x:Name="Provider" Grid.Column="1" HorizontalAlignment="Left" DisplayMemberPath="Name" MinWidth="280"/>
+                            <TextBlock Style="{StaticResource Lbl}" Grid.Row="1" Text="Model"/>
+                            <ComboBox x:Name="Model" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Left" IsEditable="True" MinWidth="280"/>
+                            <TextBlock x:Name="BaseUrlLabel" Style="{StaticResource Lbl}" Grid.Row="2" Text="Base URL"/>
+                            <TextBox x:Name="BaseUrl" Style="{StaticResource MonoBox}" Grid.Row="2" Grid.Column="1"/>
+                            <TextBlock Style="{StaticResource Lbl}" Grid.Row="3" Text="API key"/>
+                            <DockPanel Grid.Row="3" Grid.Column="1">
+                                <Button x:Name="TestKey" DockPanel.Dock="Right" Content="Test" Margin="8,3,0,3" MinWidth="72" Click="TestKey_Click"/>
+                                <PasswordBox x:Name="ApiKey"/>
+                            </DockPanel>
+                            <TextBlock x:Name="TestResult" Grid.Row="4" Grid.Column="1" Style="{StaticResource Hint}"/>
+                        </Grid>
+                    </Border>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <DockPanel>
+                                <TextBlock Style="{StaticResource Lbl}" Text="Language" Width="98"/>
+                                <TextBox x:Name="LanguageBox" Style="{StaticResource MonoBox}" Width="80" HorizontalAlignment="Left"/>
+                            </DockPanel>
+                            <TextBlock Style="{StaticResource Hint}" Text="A two-letter code such as en, de or es. Leave it blank to auto-detect."/>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource Eyebrow}" Text="WHAT LEAVES YOUR PC"/>
+                            <TextBlock TextWrapping="Wrap" Text="Only your recording, and only after you press a hotkey. It goes to the endpoint you pick above, which returns the text. Nothing is recorded in the background, and audio is never saved to disk."/>
+                            <TextBlock Style="{StaticResource Hint}" Text="API keys are kept in Windows Credential Manager, not in the settings file. To keep everything on this PC, choose “Any OpenAI-compatible endpoint” and point it at a local server such as Speaches or LocalAI."/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ===== Notes ===== -->
+                <StackPanel x:Name="Notes" Visibility="Collapsed">
+                    <DockPanel Margin="0,0,0,14">
+                        <Button DockPanel.Dock="Right" Content="Send test note" Click="TestNote_Click" VerticalAlignment="Center"/>
+                        <TextBlock Style="{StaticResource H}" Text="Notes" Margin="0"/>
+                    </DockPanel>
+                    <TextBlock x:Name="NoteTestResult" Style="{StaticResource Hint}" Margin="4,0,0,10" Visibility="Collapsed"/>
+                    <TextBlock Style="{StaticResource Hint}" Margin="4,0,0,12"
+                               Text="Turn on as many as you like. QuickNotes, Markdown and Joplin stay on this PC. Notion and Webhook send the note text to that service."/>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="QnEnabled" Content="QuickNotes file" FontWeight="SemiBold"/>
+                            <DockPanel Margin="0,8,0,0">
+                                <Button DockPanel.Dock="Right" Content="Browse…" Margin="8,3,0,3" Click="BrowseQn_Click"/>
+                                <TextBox x:Name="QnFile" Style="{StaticResource MonoBox}"/>
+                            </DockPanel>
+                            <TextBlock Style="{StaticResource Hint}" Text="One note per line, for example 20251124093000V text. Point this at your existing my_notes.txt to keep your old notes."/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="MdEnabled" Content="Obsidian, Logseq or any Markdown file" FontWeight="SemiBold"/>
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="80"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                                <TextBlock Style="{StaticResource Lbl}" Text="File"/>
+                                <TextBox x:Name="MdPath" Style="{StaticResource MonoBox}" Grid.Column="1"/>
+                                <TextBlock Style="{StaticResource Lbl}" Grid.Row="1" Text="Line"/>
+                                <TextBox x:Name="MdLine" Style="{StaticResource MonoBox}" Grid.Row="1" Grid.Column="1"/>
+                            </Grid>
+                            <TextBlock Style="{StaticResource Hint}" Text="Use {yyyy-MM-dd}, {HH:mm} and so on for dates, and {text} for the note. Obsidian daily note: Vault\Daily\{yyyy-MM-dd}.md. Logseq: graph\journals\{yyyy_MM_dd}.md."/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="NotionEnabled" Content="Notion" FontWeight="SemiBold"/>
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="80"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                                <TextBlock Style="{StaticResource Lbl}" Text="Token"/>
+                                <PasswordBox x:Name="NotionToken" Grid.Column="1"/>
+                                <TextBlock Style="{StaticResource Lbl}" Grid.Row="1" Text="Page"/>
+                                <TextBox x:Name="NotionPage" Style="{StaticResource MonoBox}" Grid.Row="1" Grid.Column="1"/>
+                            </Grid>
+                            <TextBlock Style="{StaticResource Hint}" Text="notion.so/my-integrations → create an internal integration → share your page with it → paste the page link here. Each note becomes a bullet."/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="JoplinEnabled" Content="Joplin" FontWeight="SemiBold"/>
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="80"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                                <TextBlock Style="{StaticResource Lbl}" Text="Token"/>
+                                <PasswordBox x:Name="JoplinToken" Grid.Column="1"/>
+                                <TextBlock Style="{StaticResource Lbl}" Grid.Row="1" Text="Notebook"/>
+                                <TextBox x:Name="JoplinFolder" Style="{StaticResource MonoBox}" Grid.Row="1" Grid.Column="1"/>
+                            </Grid>
+                            <TextBlock Style="{StaticResource Hint}" Text="Joplin desktop → Options → Web Clipper → turn it on and copy the token. The notebook ID is optional."/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="WebhookEnabled" Content="Webhook" FontWeight="SemiBold"/>
+                            <TextBox x:Name="WebhookUrl" Style="{StaticResource MonoBox}" Margin="0,8,0,0"/>
+                            <TextBlock Style="{StaticResource Hint}" Text="Sends a POST with JSON { text, timestamp, type, source }. Use Zapier, Make or n8n to reach Evernote, OneNote, Todoist and others."/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ===== Audio ===== -->
+                <StackPanel x:Name="Audio" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource H}" Text="Audio"/>
+                    <Border Style="{StaticResource Card}">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                            <TextBlock Style="{StaticResource Lbl}" Text="Microphone"/>
+                            <ComboBox x:Name="Mic" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                            <TextBlock Style="{StaticResource Lbl}" Grid.Row="1" Text="Level"/>
+                            <DockPanel Grid.Row="1" Grid.Column="1" Margin="0,10,0,0">
+                                <ToggleButton x:Name="MicTest" DockPanel.Dock="Right" Content="Test" MinWidth="72" Margin="8,0,0,0" Checked="MicTest_Changed" Unchecked="MicTest_Changed"/>
+                                <ProgressBar x:Name="MicLevel" Maximum="1" Height="6" VerticalAlignment="Center"/>
+                            </DockPanel>
+                        </Grid>
+                    </Border>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <DockPanel>
+                                <TextBlock Style="{StaticResource Lbl}" Text="Max recording" Width="98"/>
+                                <ComboBox x:Name="MaxSeconds" HorizontalAlignment="Left" MinWidth="140"/>
+                            </DockPanel>
+                            <TextBlock Style="{StaticResource Hint}" Text="Recording stops and transcribes on its own at this length. 5 minutes of audio is about 9.6 MB."/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+    </Grid>
+</Window>

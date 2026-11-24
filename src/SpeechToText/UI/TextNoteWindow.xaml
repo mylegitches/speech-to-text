@@ -1,0 +1,19 @@
+<Window x:Class="SpeechToText.UI.TextNoteWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="New note · SpeechToText" Width="460" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen" Topmost="True" ShowInTaskbar="False"
+        Style="{StaticResource BrandWindow}">
+    <StackPanel Margin="16">
+        <TextBox x:Name="Body" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90" MaxHeight="300"
+                 VerticalScrollBarVisibility="Auto"/>
+        <DockPanel Margin="0,12,0,0">
+            <TextBlock Text="Ctrl+Enter saves · Esc closes" VerticalAlignment="Center"
+                       Foreground="{StaticResource Muted}" FontSize="12"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancel" IsCancel="True" Margin="0,0,8,0" MinWidth="80"/>
+                <Button x:Name="SaveBtn" Content="Save" MinWidth="80" Click="Save_Click" Style="{DynamicResource AccentButtonStyle}"/>
+            </StackPanel>
+        </DockPanel>
+    </StackPanel>
+</Window>
