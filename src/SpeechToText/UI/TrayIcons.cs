@@ -16,9 +16,13 @@ namespace SpeechToText.UI;
 /// </summary>
 static class TrayIcons
 {
-    public static Icon Idle => TaskbarIsLight ? _idleOnLight.Value : _idleOnDark.Value;
-    public static Icon Recording => _recording.Value;
-    public static Icon Busy => _busy.Value;
+    // H.NotifyIcon disposes the previous Icon whenever a new one is assigned, so every getter hands
+    // out a fresh clone; the cached originals are never given to the tray and never disposed.
+    public static Icon Idle => Copy(TaskbarIsLight ? _idleOnLight : _idleOnDark);
+    public static Icon Recording => Copy(_recording);
+    public static Icon Busy => Copy(_busy);
+
+    static Icon Copy(Lazy<Icon> icon) => (Icon)icon.Value.Clone();
 
     static readonly Lazy<Icon> _idleOnLight = new(() => Oml(Color.FromRgb(0x07, 0x53, 0x1b)));
     static readonly Lazy<Icon> _idleOnDark = new(() => Oml(Color.FromRgb(0x4c, 0xc2, 0x6a)));

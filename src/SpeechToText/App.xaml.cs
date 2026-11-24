@@ -16,7 +16,7 @@ namespace SpeechToText;
 
 public partial class App : Application
 {
-    enum Session { None, Dictate, Note }
+    enum Session { None, Dictate, Note, Inline }
 
     public AppSettings Settings { get; private set; } = null!;
     public KeyboardHook Hook { get; private set; } = null!;
@@ -92,24 +92,47 @@ public partial class App : Application
 
     // ---- recording session ----
 
-    void StartSession(Session kind, TriggerLogic source)
+    bool StartSession(Session kind, TriggerLogic? source)
     {
-        if (_session != Session.None) { source.Reset(); return; }
+        if (_session != Session.None) { source?.Reset(); return false; }
         try { _recorder.Start(Settings.MicDevice); }
         catch (Exception ex)
         {
-            source.Reset();
+            source?.Reset();
             Log(ex);
             Fail("Couldn't open the microphone", "Pick another one in Settings → Audio, or check that it is plugged in.");
-            return;
+            return false;
         }
 
         _session = kind;
         Hook.EscapeHandler = CancelSession;
         _maxTimer.Start();
         Play("Speech On");
-        _pill.ShowListening(kind == Session.Note);
+        _pill.ShowListening(kind != Session.Dictate);
         _tray.Icon = TrayIcons.Recording;
+        return true;
+    }
+
+    // ---- inline dictation (the quick-note box's mic button) ----
+
+    Action<string?>? _inlineTarget;
+
+    /// <summary>Starts recording for a window that inserts the text itself. onText gets null when nothing came back.</summary>
+    public bool StartInlineDictation(Action<string?> onText)
+    {
+        if (!StartSession(Session.Inline, null)) return false;
+        _inlineTarget = onText;
+        return true;
+    }
+
+    public void StopInlineDictation() { if (_session == Session.Inline) StopSession(); }
+    public void CancelInlineDictation() { if (_session == Session.Inline) CancelSession(); }
+
+    void DeliverInline(string? text)
+    {
+        var target = _inlineTarget;
+        _inlineTarget = null;
+        target?.Invoke(text);
     }
 
     async void StopSession()
@@ -124,6 +147,7 @@ public partial class App : Application
 
         _pill.ShowBusy();
         _tray.Icon = TrayIcons.Busy;
+        string? delivered = null;
         try
         {
             var text = await Transcriber.TranscribeAsync(Settings, wav);
@@ -142,6 +166,8 @@ public partial class App : Application
             }
             _lastTranscript = text;
 
+            if (kind == Session.Inline) { _pill.Hide(); delivered = text; return; }
+
             bool toNotes = kind == Session.Note || Settings.DictateOutput != DictateOutput.Paste;
             bool paste = kind == Session.Dictate && Settings.DictateOutput != DictateOutput.Notes;
 
@@ -156,16 +182,22 @@ public partial class App : Application
             Log(ex);
             Fail("Couldn't transcribe that", ex.Message + "\nCheck your connection, or your key in Settings → Transcription.");
         }
-        finally { Finish(); }
+        finally
+        {
+            Finish();
+            if (kind == Session.Inline) DeliverInline(delivered);
+        }
     }
 
     async void CancelSession()
     {
         if (_session == Session.None) return;
+        var kind = _session;
         EndRecordingUi();
         await _recorder.StopAsync();
         Finish();
         _pill.Hide();
+        if (kind == Session.Inline) DeliverInline(null);
     }
 
     void EndRecordingUi()
@@ -190,7 +222,8 @@ public partial class App : Application
         else if (flash) _pill.Flash("Saved to notes");
     }
 
-    void ShowTextNote() => new TextNoteWindow(t => SaveNote(t, NoteKind.Text, flash: true)).Show();
+    void ShowTextNote() =>
+        new TextNoteWindow(this, (text, dictated) => SaveNote(text, dictated ? NoteKind.Voice : NoteKind.Text, flash: true)).Show();
 
     // ---- tray ----
 
@@ -205,7 +238,7 @@ public partial class App : Application
 
         var menu = new ContextMenu();
         menu.Items.Add(Item("Settings…", OpenSettings));
-        menu.Items.Add(Item("New text note…", ShowTextNote));
+        menu.Items.Add(Item("New note…", ShowTextNote));
         menu.Items.Add(Item("Copy last transcript", () => { if (_lastTranscript.Length > 0) Clipboard.SetText(_lastTranscript); }));
         menu.Items.Add(new Separator());
         menu.Items.Add(_providerMenu);

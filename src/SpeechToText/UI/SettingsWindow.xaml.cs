@@ -95,7 +95,7 @@ public partial class SettingsWindow : Window
         var info = (ProviderInfo)Provider.SelectedItem;
         var ps = _s.For(info.Id);
         Model.ItemsSource = info.Models;
-        Model.Text = ps.Model.Length > 0 ? ps.Model : info.DefaultModel;
+        Model.Text = info.Entry(ps.Model.Length > 0 ? ProviderInfo.ModelId(ps.Model) : info.DefaultModel);
         BaseUrl.Text = ps.BaseUrl.Length > 0 ? ps.BaseUrl : info.BaseUrl;
         BaseUrl.Visibility = BaseUrlLabel.Visibility = info.CustomUrl ? Visibility.Visible : Visibility.Collapsed;
         ApiKey.Password = SecretStore.Get(info.Id) ?? "";
@@ -139,7 +139,7 @@ public partial class SettingsWindow : Window
         var info = (ProviderInfo)Provider.SelectedItem;
         _s.Provider = info.Id;
         var ps = _s.For(info.Id);
-        ps.Model = Model.Text.Trim();
+        ps.Model = ProviderInfo.ModelId(Model.Text);
         if (info.CustomUrl) ps.BaseUrl = BaseUrl.Text.Trim();
         SecretStore.Set(info.Id, ApiKey.Password.Trim());
         _s.Language = LanguageBox.Text.Trim().ToLowerInvariant();
