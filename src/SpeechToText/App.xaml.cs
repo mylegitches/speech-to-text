@@ -128,12 +128,25 @@ public partial class App : Application
         {
             var text = await Transcriber.TranscribeAsync(Settings, wav);
             if (text.Length == 0) { _pill.Flash("Didn't catch that", ok: false); return; }
+
+            if (Settings.TextStyle == TextStyle.Polished)
+            {
+                _pill.ShowBusy("Polishing…");
+                try { text = await Polisher.PolishAsync(Settings, text); }
+                catch (Exception ex)
+                {
+                    // Never lose the dictation: fall back to the raw text and say so.
+                    Log(ex);
+                    Notify("Used the raw text", ex.Message + "\nYour words were kept as spoken. Check Settings → Transcription → Text style.");
+                }
+            }
             _lastTranscript = text;
 
             bool toNotes = kind == Session.Note || Settings.DictateOutput != DictateOutput.Paste;
             bool paste = kind == Session.Dictate && Settings.DictateOutput != DictateOutput.Notes;
 
-            if (paste) { _pill.Hide(); await Paster.PasteAsync(text); }
+            if (paste) { _pill.Hide(); await Paster.PasteAsync(text, Settings.KeepInClipboard); }
+            else if (Settings.KeepInClipboard) await Paster.CopyAsync(text);
             if (toNotes) await SaveNote(text, NoteKind.Voice, flash: !paste);
             else _pill.Hide();
         }

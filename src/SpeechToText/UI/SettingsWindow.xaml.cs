@@ -33,6 +33,7 @@ public partial class SettingsWindow : Window
             cb.ItemsSource = new[] { "Smart (tap or hold)", "Hold to talk", "Press to toggle" };
         DictateOutput.ItemsSource = new[] { "Paste at cursor", "Notes", "Paste and notes" };
         Provider.ItemsSource = Transcriber.All;
+        PolishProvider.ItemsSource = Polisher.All;
         Mic.ItemsSource = new[] { "Windows default" }.Concat(Recorder.Devices()).ToList();
         MaxSeconds.ItemsSource = Lengths.Select(l => l.Label).ToList();
 
@@ -46,6 +47,9 @@ public partial class SettingsWindow : Window
         AddHandler(Selector.SelectionChangedEvent, new RoutedEventHandler(Changed));
         AddHandler(PasswordBox.PasswordChangedEvent, new RoutedEventHandler(Changed));
         Provider.SelectionChanged += (_, _) => { if (!_loading) LoadProvider(); };
+        PolishProvider.SelectionChanged += (_, _) => { if (!_loading) LoadPolisher(); };
+        StylePolished.Checked += (_, _) => PolishPanel.Visibility = Visibility.Visible;
+        StylePolished.Unchecked += (_, _) => PolishPanel.Visibility = Visibility.Collapsed;
 
         foreach (var box in new[] { DictateHotkey, NoteHotkey }) WireHotkeyBox(box);
 
@@ -58,6 +62,7 @@ public partial class SettingsWindow : Window
         DictateHotkey.Text = _s.DictateHotkey;
         DictateMode.SelectedIndex = (int)_s.DictateMode;
         DictateOutput.SelectedIndex = (int)_s.DictateOutput;
+        KeepInClipboard.IsChecked = _s.KeepInClipboard;
         NoteHotkey.Text = _s.NoteHotkey;
         NoteMode.SelectedIndex = (int)_s.NoteMode;
         StartWithWindows.IsChecked = Startup.IsEnabled;
@@ -66,6 +71,10 @@ public partial class SettingsWindow : Window
         Provider.SelectedItem = Transcriber.Get(_s.Provider);
         LoadProvider();
         LanguageBox.Text = _s.Language;
+        StyleRaw.IsChecked = _s.TextStyle == TextStyle.Raw;
+        StylePolished.IsChecked = _s.TextStyle == TextStyle.Polished;
+        PolishProvider.SelectedItem = Polisher.Get(_s.PolishProvider);
+        LoadPolisher();
 
         var n = _s.Notes;
         QnEnabled.IsChecked = n.QuickNotesEnabled; QnFile.Text = n.QuickNotesFile;
@@ -94,6 +103,23 @@ public partial class SettingsWindow : Window
         _loading = was;
     }
 
+    void LoadPolisher()
+    {
+        var was = _loading;
+        _loading = true;
+        var info = (ProviderInfo)PolishProvider.SelectedItem;
+        var ps = _s.PolishFor(info.Id);
+        PolishModel.ItemsSource = info.Models;
+        PolishModel.Text = ps.Model.Length > 0 ? ps.Model : info.DefaultModel;
+        PolishUrl.Text = ps.BaseUrl.Length > 0 ? ps.BaseUrl : info.BaseUrl;
+        PolishUrl.Visibility = PolishUrlLabel.Visibility = info.CustomUrl ? Visibility.Visible : Visibility.Collapsed;
+        PolishKey.Password = SecretStore.Get(Polisher.SecretName(info.Id)) ?? "";
+        PolishKey.IsEnabled = info.Id != "ollama-local"; // local Ollama needs no key
+        PolishResult.Text = "";
+        PolishPanel.Visibility = StylePolished.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        _loading = was;
+    }
+
     void Changed(object sender, RoutedEventArgs e)
     {
         if (_loading || e.OriginalSource == Nav) return;
@@ -105,6 +131,7 @@ public partial class SettingsWindow : Window
     {
         _s.DictateMode = (HotkeyMode)DictateMode.SelectedIndex;
         _s.DictateOutput = (DictateOutput)DictateOutput.SelectedIndex;
+        _s.KeepInClipboard = KeepInClipboard.IsChecked == true;
         _s.NoteMode = (HotkeyMode)NoteMode.SelectedIndex;
         _s.Sounds = Sounds.IsChecked == true;
         Startup.Set(StartWithWindows.IsChecked == true);
@@ -116,6 +143,14 @@ public partial class SettingsWindow : Window
         if (info.CustomUrl) ps.BaseUrl = BaseUrl.Text.Trim();
         SecretStore.Set(info.Id, ApiKey.Password.Trim());
         _s.Language = LanguageBox.Text.Trim().ToLowerInvariant();
+
+        _s.TextStyle = StylePolished.IsChecked == true ? TextStyle.Polished : TextStyle.Raw;
+        var pinfo = (ProviderInfo)PolishProvider.SelectedItem;
+        _s.PolishProvider = pinfo.Id;
+        var pps = _s.PolishFor(pinfo.Id);
+        pps.Model = PolishModel.Text.Trim();
+        if (pinfo.CustomUrl) pps.BaseUrl = PolishUrl.Text.Trim();
+        if (pinfo.Id != "ollama-local") SecretStore.Set(Polisher.SecretName(pinfo.Id), PolishKey.Password.Trim());
 
         var n = _s.Notes;
         n.QuickNotesEnabled = QnEnabled.IsChecked == true; n.QuickNotesFile = QnFile.Text.Trim();
@@ -182,6 +217,20 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex) { TestResult.Text = "✗ " + ex.Message; }
         finally { TestKey.IsEnabled = true; }
+    }
+
+    async void TestPolish_Click(object sender, RoutedEventArgs e)
+    {
+        Save();
+        TestPolish.IsEnabled = false;
+        PolishResult.Text = "Polishing a sample sentence…";
+        try
+        {
+            var (text, ms) = await Polisher.TestAsync(_s);
+            PolishResult.Text = $"✓ {ms / 1000.0:0.0} s → {text}";
+        }
+        catch (Exception ex) { PolishResult.Text = "✗ " + ex.Message; }
+        finally { TestPolish.IsEnabled = true; }
     }
 
     async void TestNote_Click(object sender, RoutedEventArgs e)

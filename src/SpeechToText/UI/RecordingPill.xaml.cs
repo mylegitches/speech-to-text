@@ -56,12 +56,12 @@ public partial class RecordingPill : Window
         Present();
     }
 
-    public void ShowBusy()
+    public void ShowBusy(string label = "Transcribing…")
     {
         Glyph.Foreground = Amber;
         Glyph.Text = ""; // sync
         Bars.Visibility = Visibility.Collapsed;
-        Label.Text = "Transcribing…";
+        Label.Text = label;
     }
 
     public void Flash(string text, bool ok = true)

@@ -100,6 +100,8 @@
                                 <TextBlock Style="{StaticResource Lbl}" Grid.Row="2" Text="Send to"/>
                                 <ComboBox x:Name="DictateOutput" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Left"/>
                             </Grid>
+                            <CheckBox x:Name="KeepInClipboard" Content="Keep the text on the clipboard" Margin="0,10,0,0"/>
+                            <TextBlock Style="{StaticResource Hint}" Text="When this is off, whatever you had copied before is put back after the paste."/>
                         </StackPanel>
                     </Border>
 
@@ -160,8 +162,33 @@
                     </Border>
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
+                            <TextBlock Style="{StaticResource Eyebrow}" Text="TEXT STYLE"/>
+                            <RadioButton x:Name="StyleRaw" GroupName="Style" Content="Raw — exactly what you said"/>
+                            <RadioButton x:Name="StylePolished" GroupName="Style" Margin="0,6,0,0"
+                                         Content="Polished — punctuation, grammar and flow fixed; fillers and false starts removed"/>
+                            <Grid x:Name="PolishPanel" Margin="0,12,0,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                                <TextBlock Style="{StaticResource Lbl}" Text="Polish with"/>
+                                <ComboBox x:Name="PolishProvider" Grid.Column="1" HorizontalAlignment="Left" DisplayMemberPath="Name" MinWidth="280"/>
+                                <TextBlock Style="{StaticResource Lbl}" Grid.Row="1" Text="Model"/>
+                                <ComboBox x:Name="PolishModel" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Left" IsEditable="True" MinWidth="280"/>
+                                <TextBlock x:Name="PolishUrlLabel" Style="{StaticResource Lbl}" Grid.Row="2" Text="Base URL"/>
+                                <TextBox x:Name="PolishUrl" Style="{StaticResource MonoBox}" Grid.Row="2" Grid.Column="1"/>
+                                <TextBlock x:Name="PolishKeyLabel" Style="{StaticResource Lbl}" Grid.Row="3" Text="API key"/>
+                                <DockPanel x:Name="PolishKeyRow" Grid.Row="3" Grid.Column="1">
+                                    <Button x:Name="TestPolish" DockPanel.Dock="Right" Content="Test" Margin="8,3,0,3" MinWidth="72" Click="TestPolish_Click"/>
+                                    <PasswordBox x:Name="PolishKey"/>
+                                </DockPanel>
+                                <TextBlock x:Name="PolishResult" Grid.Row="4" Grid.Column="1" Style="{StaticResource Hint}"/>
+                            </Grid>
+                            <TextBlock Style="{StaticResource Hint}" Text="Polishing adds a short wait after you stop talking. Test shows the time for the model you picked. If polishing fails, your raw text is used, so nothing is lost."/>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
                             <TextBlock Style="{StaticResource Eyebrow}" Text="WHAT LEAVES YOUR PC"/>
-                            <TextBlock TextWrapping="Wrap" Text="Only your recording, and only after you press a hotkey. It goes to the endpoint you pick above, which returns the text. Nothing is recorded in the background, and audio is never saved to disk."/>
+                            <TextBlock TextWrapping="Wrap" Text="Only your recording, and only after you press a hotkey. It goes to the endpoint you pick above, which returns the text. With Polished on, that text is also sent to the polish model. Nothing is recorded in the background, and audio is never saved to disk."/>
                             <TextBlock Style="{StaticResource Hint}" Text="API keys are kept in Windows Credential Manager, not in the settings file. To keep everything on this PC, choose “Any OpenAI-compatible endpoint” and point it at a local server such as Speaches or LocalAI."/>
                         </StackPanel>
                     </Border>

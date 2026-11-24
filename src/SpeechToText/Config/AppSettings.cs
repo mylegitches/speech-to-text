@@ -6,6 +6,7 @@ namespace SpeechToText.Config;
 
 public enum HotkeyMode { Smart, Hold, Toggle }
 public enum DictateOutput { Paste, Notes, Both }
+public enum TextStyle { Raw, Polished }
 
 public sealed class ProviderSettings
 {
@@ -45,11 +46,25 @@ public sealed class AppSettings
     public string DictateHotkey { get; set; } = "Ctrl+Alt+Space";
     public HotkeyMode DictateMode { get; set; } = HotkeyMode.Smart;
     public DictateOutput DictateOutput { get; set; } = DictateOutput.Paste;
+    /// <summary>Leave the transcript on the clipboard instead of restoring what was there before.</summary>
+    public bool KeepInClipboard { get; set; }
 
     public string NoteHotkey { get; set; } = "Ctrl+Delete";
     public HotkeyMode NoteMode { get; set; } = HotkeyMode.Hold;
 
     public NotesSettings Notes { get; set; } = new();
+
+    /// <summary>Raw = exactly what the speech model returned. Polished = an LLM fixes grammar, punctuation and flow.</summary>
+    public TextStyle TextStyle { get; set; } = TextStyle.Raw;
+    public string PolishProvider { get; set; } = "ollama-cloud";
+    public Dictionary<string, ProviderSettings> PolishProviders { get; set; } = new();
+
+    public ProviderSettings PolishFor(string providerId)
+    {
+        if (!PolishProviders.TryGetValue(providerId, out var p))
+            PolishProviders[providerId] = p = new ProviderSettings();
+        return p;
+    }
 
     /// <summary>ISO-639-1 code, or empty for auto-detect.</summary>
     public string Language { get; set; } = "";

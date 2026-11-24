@@ -4,13 +4,19 @@ using SpeechToText.Input;
 
 namespace SpeechToText.Output;
 
-/// <summary>Pastes text at the caret via clipboard + Ctrl+V, then puts the old clipboard back.</summary>
+/// <summary>
+/// Pastes text at the caret via clipboard + Ctrl+V. By default the old clipboard is put back
+/// afterwards; with keepInClipboard the transcript stays there instead.
+/// </summary>
 public static class Paster
 {
-    public static async Task PasteAsync(string text)
+    public static Task<bool> CopyAsync(string text) =>
+        Retry(() => Clipboard.SetDataObject(new DataObject(DataFormats.UnicodeText, text), true));
+
+    public static async Task PasteAsync(string text, bool keepInClipboard)
     {
-        var saved = Snapshot();
-        if (!await Retry(() => Clipboard.SetDataObject(new DataObject(DataFormats.UnicodeText, text), true))) return;
+        var saved = keepInClipboard ? null : Snapshot();
+        if (!await CopyAsync(text)) return;
 
         // A still-held Ctrl/Alt/Shift/Win from the hotkey would turn Ctrl+V into something else.
         for (int i = 0; i < 30 && KeyboardHook.AnyModifierDown(); i++) await Task.Delay(50);
