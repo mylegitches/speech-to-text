@@ -46,14 +46,29 @@ public static partial class NoteTargets
 
     static Task QuickNotes(NotesSettings s, Note n)
     {
-        var line = $"{n.Time:yyyyMMddHHmmss}{(n.Kind == NoteKind.Voice ? 'V' : 'T')} {OneLine(n.Text)}";
+        var line = $"{n.Time:yyyyMMddHHmmss}{(n.Kind == NoteKind.Voice ? 'V' : 'T')} {NoteLine.Encode(n.Text)}";
         return AppendLine(Environment.ExpandEnvironmentVariables(s.QuickNotesFile), line);
     }
 
     static Task Markdown(NotesSettings s, Note n)
     {
         var path = Fill(Environment.ExpandEnvironmentVariables(s.MarkdownPath), n);
-        return AppendLine(path, Fill(s.MarkdownLine, n));
+        var dir = Path.GetDirectoryName(path)!;
+
+        // Copy the note's images next to the Markdown file so Obsidian/Logseq can show them.
+        var text = NoteMarkdown.MapImages(n.Text, (alt, url) =>
+        {
+            if (NoteMarkdown.LocalImagePath(s, url) is not { } src || !File.Exists(src)) return $"![{alt}]({url})";
+            var name = Path.GetFileName(src);
+            var dest = Path.Combine(dir, "attachments", name);
+            Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+            if (!File.Exists(dest)) File.Copy(src, dest);
+            return $"![{alt}](attachments/{name})";
+        });
+        // Keep multi-line notes inside their bullet when the line template is a list item.
+        if (s.MarkdownLine.TrimStart().StartsWith("- ") || s.MarkdownLine.TrimStart().StartsWith("* "))
+            text = text.Replace("\n", "\n  ");
+        return AppendLine(path, Fill(s.MarkdownLine, n with { Text = text }));
     }
 
     static async Task Notion(NotesSettings s, Note n)
@@ -69,7 +84,8 @@ public static partial class NoteTargets
                     new
                     {
                         @object = "block", type = "bulleted_list_item",
-                        bulleted_list_item = new { rich_text = new[] { new { type = "text", text = new { content = $"{n.Time:yyyy-MM-dd HH:mm} {n.Text}" } } } },
+                        // Notion's API shows Markdown syntax literally, so send readable plain text.
+                        bulleted_list_item = new { rich_text = new[] { new { type = "text", text = new { content = $"{n.Time:yyyy-MM-dd HH:mm} {NoteMarkdown.ToPlainText(n.Text)}" } } } },
                     },
                 },
             }),
@@ -82,9 +98,12 @@ public static partial class NoteTargets
     static async Task Joplin(NotesSettings s, Note n)
     {
         var token = SecretStore.Get("joplin") ?? throw new InvalidOperationException("no API token set");
-        var title = OneLine(n.Text);
+        var title = OneLine(NoteMarkdown.ToPlainText(n.Text));
         if (title.Length > 60) title = title[..60] + "…";
-        var payload = new Dictionary<string, string> { ["title"] = title, ["body"] = n.Text };
+        // Joplin renders Markdown; local images would need its resource API, so mark where they were.
+        var body = NoteMarkdown.MapImages(n.Text, (alt, url) =>
+            NoteMarkdown.LocalImagePath(s, url) is { } p ? $"*[image: {Path.GetFileName(p)}]*" : $"![{alt}]({url})");
+        var payload = new Dictionary<string, string> { ["title"] = title, ["body"] = body };
         if (s.JoplinFolderId.Length > 0) payload["parent_id"] = s.JoplinFolderId;
         await Ensure(await Http.PostAsJsonAsync($"http://127.0.0.1:41184/notes?token={Uri.EscapeDataString(token)}", payload));
     }
@@ -94,7 +113,9 @@ public static partial class NoteTargets
         if (string.IsNullOrWhiteSpace(s.WebhookUrl)) throw new InvalidOperationException("no URL set");
         await Ensure(await Http.PostAsJsonAsync(s.WebhookUrl, new
         {
-            text = n.Text, timestamp = n.Time.ToString("o"), type = n.Kind == NoteKind.Voice ? "voice" : "text", source = "SpeechToText",
+            text = n.Text, plain = NoteMarkdown.ToPlainText(n.Text),
+            images = NoteMarkdown.ImageLinks(n.Text).Select(u => NoteMarkdown.LocalImagePath(s, u) ?? u).ToArray(),
+            timestamp = n.Time.ToString("o"), type = n.Kind == NoteKind.Voice ? "voice" : "text", source = "SpeechToText",
         }));
     }
 
@@ -116,8 +137,14 @@ public static partial class NoteTargets
     }
 
     /// <summary>Replaces {text} and any {date format} token, e.g. {yyyy-MM-dd} or {HH:mm}.</summary>
+    /// <remarks>
+    /// Obsidian-style tokens work too: {YYYY-MM-DD} means the same as {yyyy-MM-dd}. Uppercase Y and D
+    /// have no meaning in .NET date formats, so they're safe to read as year and day.
+    /// </remarks>
     public static string Fill(string template, Note n) =>
-        TokenRx().Replace(template, m => m.Groups[1].Value == "text" ? n.Text : n.Time.ToString(m.Groups[1].Value));
+        TokenRx().Replace(template, m => m.Groups[1].Value == "text"
+            ? n.Text
+            : n.Time.ToString(m.Groups[1].Value.Replace('Y', 'y').Replace('D', 'd'), System.Globalization.CultureInfo.InvariantCulture));
 
     static string OneLine(string s) => Regex.Replace(s, @"\s*\r?\n\s*", " ").Trim();
 

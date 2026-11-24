@@ -8,20 +8,29 @@ namespace SpeechToText.Output;
 /// <summary>One line of a QuickNotes file: "20251124093000V the note text".</summary>
 public sealed record NoteLine(string Raw, DateTime? Time, char Kind, string Text)
 {
+    /// <summary>
+    /// A note is one line in the file, so line breaks inside it (Markdown lists, paragraphs) are stored
+    /// as ⏎ (U+23CE). It's readable in a plain text editor and never appears in ordinary notes.
+    /// </summary>
+    public const char NewlineMark = '⏎';
+
+    public static string Encode(string text) => Regex.Replace(text.Trim(), @"\r?\n", NewlineMark.ToString());
+    public static string Decode(string stored) => stored.Replace(NewlineMark.ToString(), "\n");
+
     /// <summary>Lines that don't match the format are kept as-is (Kind '?') so a rewrite never loses them.</summary>
     public static NoteLine Parse(string raw)
     {
         var m = Regex.Match(raw, @"^(\d{14})([TV]) ?(.*)$");
         if (m.Success && DateTime.TryParseExact(m.Groups[1].Value, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
                 DateTimeStyles.None, out var t))
-            return new NoteLine(raw, t, m.Groups[2].Value[0], m.Groups[3].Value);
+            return new NoteLine(raw, t, m.Groups[2].Value[0], Decode(m.Groups[3].Value));
         return new NoteLine(raw, null, '?', raw);
     }
 
     public NoteLine WithText(string text)
     {
-        text = Regex.Replace(text, @"\s*\r?\n\s*", " ").Trim(); // one note per line
-        return Time is { } t ? new NoteLine($"{t:yyyyMMddHHmmss}{Kind} {text}", t, Kind, text) : new NoteLine(text, null, '?', text);
+        var stored = Encode(text);
+        return Time is { } t ? new NoteLine($"{t:yyyyMMddHHmmss}{Kind} {stored}", t, Kind, Decode(stored)) : new NoteLine(stored, null, '?', stored);
     }
 }
 

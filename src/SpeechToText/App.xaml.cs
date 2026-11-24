@@ -126,7 +126,12 @@ public partial class App : Application
     bool StartSession(Session kind, TriggerLogic? source)
     {
         if (_session != Session.None) { source?.Reset(); return false; }
-        try { _recorder.Start(Settings.MicDevice); }
+        try
+        {
+            _recorder.Start(Settings.MicDevice, Settings.CaptureSystemAudio ? Settings.OutputDevice : null);
+            if (_recorder.SystemAudioError is { } err)
+                Notify("Recording your mic only", $"Couldn't record computer audio: {err}\nCheck the output device in Settings → Audio.");
+        }
         catch (Exception ex)
         {
             source?.Reset();

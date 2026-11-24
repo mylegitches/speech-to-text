@@ -46,6 +46,8 @@ public partial class SettingsWindow : Window
             new ComboBoxItem { Content = "CPU — slow: several times your recording length" },
         };
         Mic.ItemsSource = new[] { "Windows default" }.Concat(Recorder.Devices()).ToList();
+        try { OutputDevice.ItemsSource = new[] { new SystemAudio.OutputDevice("", "Windows default") }.Concat(SystemAudio.Devices()).ToList(); }
+        catch { OutputDevice.ItemsSource = new List<SystemAudio.OutputDevice> { new("", "Windows default") }; }
         MaxSeconds.ItemsSource = Lengths.Select(l => l.Label).ToList();
 
         LoadFromSettings();
@@ -102,6 +104,9 @@ public partial class SettingsWindow : Window
         WebhookEnabled.IsChecked = n.WebhookEnabled; WebhookUrl.Text = n.WebhookUrl;
 
         Mic.SelectedIndex = Math.Clamp(_s.MicDevice + 1, 0, Mic.Items.Count - 1);
+        CaptureSystemAudio.IsChecked = _s.CaptureSystemAudio;
+        var outputs = OutputDevice.ItemsSource as List<SystemAudio.OutputDevice> ?? [];
+        OutputDevice.SelectedItem = outputs.FirstOrDefault(d => d.Id == _s.OutputDevice) ?? outputs.FirstOrDefault();
         var li = Array.FindIndex(Lengths, l => l.Seconds == _s.MaxSeconds);
         MaxSeconds.SelectedIndex = li < 0 ? 2 : li;
     }
@@ -282,6 +287,8 @@ public partial class SettingsWindow : Window
         n.WebhookEnabled = WebhookEnabled.IsChecked == true; n.WebhookUrl = WebhookUrl.Text.Trim();
 
         _s.MicDevice = Mic.SelectedIndex - 1;
+        _s.CaptureSystemAudio = CaptureSystemAudio.IsChecked == true;
+        _s.OutputDevice = (OutputDevice.SelectedItem as SystemAudio.OutputDevice)?.Id ?? "";
         _s.MaxSeconds = Lengths[Math.Max(0, MaxSeconds.SelectedIndex)].Seconds;
 
         _s.Save();

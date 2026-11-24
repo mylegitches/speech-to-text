@@ -73,6 +73,11 @@ public sealed class AppSettings
     /// <summary>ISO-639-1 code, or empty for auto-detect.</summary>
     public string Language { get; set; } = "";
     public int MicDevice { get; set; } = -1; // -1 = Windows default
+
+    /// <summary>Also record what the computer is playing (calls, videos) and mix it with the mic.</summary>
+    public bool CaptureSystemAudio { get; set; }
+    /// <summary>Output device to record from; empty = the Windows default.</summary>
+    public string OutputDevice { get; set; } = "";
     public int MaxSeconds { get; set; } = 300;
     public bool Sounds { get; set; } = true;
 

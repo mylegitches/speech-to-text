@@ -70,10 +70,27 @@ Turn on as many targets as you like:
 | Notion | Added as a bullet on a Notion page. The note is sent to Notion |
 | Webhook | A JSON POST to a URL you choose. Use Zapier, Make or n8n to reach Evernote, OneNote, Todoist and others |
 
+### Rich notes
+The note box is a rich editor. Notes are saved as Markdown, so they also read well in Obsidian or any text editor.
+- **Formatting:** paste from Word or Outlook and the formatting is kept. Paste from a web page and bold, italics, links, headings and lists are kept. Shortcuts: `Ctrl+B`, `Ctrl+I`, `Ctrl+Shift+L` for bullets.
+- **Images:** screenshots, copied images and image files show up inline. They're saved to `my_notes_assets\` next to your notes file.
+- **Where images end up in other targets:**
+  - Obsidian / Markdown: a copy goes into an `attachments\` folder next to the day's file.
+  - Joplin: an `[image]` placeholder.
+  - Notion: plain text.
+  - Webhook: the image file paths are included in the JSON.
+- **Images from web pages:** these are pasted as links, not downloaded.
+- **Storage:** in `my_notes.txt` each note stays on one line, with line breaks stored as `⏎`.
+
+### Computer audio
+Settings → Audio → **Also record computer audio** mixes whatever is playing on an output device (a call, a video) into dictation and voice notes. Pick the output device, or keep Windows default. If that device can't be recorded, you get a notice and it records your mic alone.
+
+Everyone you can hear gets transcribed, so make sure the people on a call are OK with that.
+
 ### Notes manager
 Open it by double-tapping the Note hotkey (Hold mode), from the tray (**Notes…**), or with `SpeechToText.exe --notes`. It lists your QuickNotes file newest first.
 - Search with `Ctrl+F`.
-- Double-click a note to edit it; Enter saves.
+- Double-click a note to open it in the rich editor.
 - Copy a note with its copy button.
 - **Delete is reversible.** A deleted note moves to `my_notes.deleted.txt` next to your notes file, and **Undo** puts it back where it was.
 - Notes saved while the window is open appear right away.
