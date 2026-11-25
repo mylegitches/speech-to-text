@@ -328,7 +328,7 @@ public partial class App : Application
         Notify(title, message);
     }
 
-    static void Log(Exception ex)
+    public static void Log(Exception ex)
     {
         try
         {

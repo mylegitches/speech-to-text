@@ -62,6 +62,9 @@
         <!-- Sidebar -->
         <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="0,0,1,0">
             <DockPanel>
+                <!-- Live save status: every change is written immediately; failures say why. -->
+                <TextBlock x:Name="SaveStatus" DockPanel.Dock="Bottom" Margin="18,0,12,16" FontSize="12" TextWrapping="Wrap"
+                           Foreground="{StaticResource Muted}" Text="✓ All changes saved" AutomationProperties.LiveSetting="Polite"/>
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="18,18,0,14">
                     <!-- OML mark: owmycontext favicon.svg trace, approved dark-mode stroke #4cc26a -->
                     <Viewbox Width="22" Height="22" AutomationProperties.Name="SpeechToText logo">

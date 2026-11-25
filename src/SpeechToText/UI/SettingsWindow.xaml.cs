@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using SpeechToText.Audio;
@@ -18,7 +19,7 @@ public partial class SettingsWindow : Window
 {
     readonly App _app;
     readonly AppSettings _s;
-    readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
+    readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(300) };
     readonly Recorder _testRecorder = new();
     readonly Hardware _hw = GpuDetect.Detect();
     CancellationTokenSource? _download;
@@ -59,6 +60,7 @@ public partial class SettingsWindow : Window
         AddHandler(ToggleButton.UncheckedEvent, new RoutedEventHandler(Changed));
         AddHandler(Selector.SelectionChangedEvent, new RoutedEventHandler(Changed));
         AddHandler(PasswordBox.PasswordChangedEvent, new RoutedEventHandler(Changed));
+        AddHandler(UIElement.LostKeyboardFocusEvent, new KeyboardFocusChangedEventHandler(FlushPendingSave));
         Provider.SelectionChanged += (_, _) => { if (!_loading) LoadProvider(); };
         Model.SelectionChanged += (_, _) => { if (!_loading) Dispatcher.BeginInvoke(RefreshLocal); };
         LocalDeviceBox.SelectionChanged += (_, _) =>
@@ -115,7 +117,14 @@ public partial class SettingsWindow : Window
     {
         var was = _loading;
         _loading = true;
-        var info = (ProviderInfo)Provider.SelectedItem;
+        try { FillProvider(); }
+        finally { _loading = was; } // a failure here must never leave saving switched off
+        if (Provider.SelectedItem is ProviderInfo p && Transcriber.IsLocal(p.Id)) RefreshLocal();
+    }
+
+    void FillProvider()
+    {
+        if (Provider.SelectedItem is not ProviderInfo info) return;
         var ps = _s.For(info.Id);
         Model.ItemsSource = info.Models;
         Model.Text = info.Entry(ps.Model.Length > 0 ? ProviderInfo.ModelId(ps.Model) : info.DefaultModel);
@@ -128,8 +137,6 @@ public partial class SettingsWindow : Window
         ApiKeyLabel.Visibility = ApiKeyRow.Visibility = local ? Visibility.Collapsed : Visibility.Visible;
         LocalDeviceLabel.Visibility = LocalDeviceBox.Visibility = LocalFiles.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
         LocalDeviceBox.SelectedIndex = (int)_s.LocalDevice;
-        _loading = was;
-        if (local) RefreshLocal();
     }
 
     // ---- On this PC (offline) ----
@@ -231,7 +238,13 @@ public partial class SettingsWindow : Window
     {
         var was = _loading;
         _loading = true;
-        var info = (ProviderInfo)PolishProvider.SelectedItem;
+        try { FillPolisher(); }
+        finally { _loading = was; } // a failure here must never leave saving switched off
+    }
+
+    void FillPolisher()
+    {
+        if (PolishProvider.SelectedItem is not ProviderInfo info) return;
         var ps = _s.PolishFor(info.Id);
         PolishModel.ItemsSource = info.Models;
         PolishModel.Text = ps.Model.Length > 0 ? ps.Model : info.DefaultModel;
@@ -241,31 +254,84 @@ public partial class SettingsWindow : Window
         PolishKey.IsEnabled = info.Id != "ollama-local"; // local Ollama needs no key
         PolishResult.Text = "";
         PolishPanel.Visibility = StylePolished.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
-        _loading = was;
     }
 
+    /// <summary>
+    /// Every change is saved right away. Clicks (toggles, radio buttons, dropdowns) save immediately;
+    /// typing saves after a 300 ms pause and again when the field loses focus.
+    /// </summary>
     void Changed(object sender, RoutedEventArgs e)
     {
         if (_loading || e.OriginalSource == Nav) return;
         _saveTimer.Stop();
-        _saveTimer.Start();
+        if (e.OriginalSource is TextBox or PasswordBox) { _saveTimer.Start(); return; }
+        // Let the control finish updating (e.g. the other radio button unchecking) before reading it.
+        Dispatcher.BeginInvoke(Save, DispatcherPriority.Input);
     }
 
+    void FlushPendingSave(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (_saveTimer.IsEnabled) { _saveTimer.Stop(); Save(); }
+    }
+
+    /// <summary>Saves everything and reports the outcome in the sidebar, never silently.</summary>
     void Save()
     {
+        if (_loading) return;
+        try
+        {
+            var problems = WriteAll();
+            if (problems.Count == 0)
+            {
+                SaveStatus.Text = $"✓ All changes saved {DateTime.Now:HH:mm:ss}";
+                SaveStatus.Foreground = (Brush)FindResource("Muted");
+            }
+            else ShowSaveError(string.Join("; ", problems));
+        }
+        catch (Exception ex)
+        {
+            App.Log(ex);
+            ShowSaveError(ex.Message);
+        }
+    }
+
+    void ShowSaveError(string why)
+    {
+        SaveStatus.Text = "✗ Couldn't save: " + why;
+        SaveStatus.Foreground = (Brush)FindResource("Danger");
+    }
+
+    /// <summary>
+    /// An editable dropdown's Text lags behind a pick from its list, so a picked item wins; otherwise
+    /// it's whatever the person typed.
+    /// </summary>
+    static string ComboValue(ComboBox c) =>
+        (c.SelectedItem as string ?? c.Text).Trim();
+
+    /// <summary>API keys go to Credential Manager one at a time, so one failing key can't block the rest.</summary>
+    static void SetSecret(string name, string value, List<string> problems)
+    {
+        try { SecretStore.Set(name, value); }
+        catch (Exception ex) { App.Log(ex); problems.Add($"{name} key: {ex.Message}"); }
+    }
+
+    List<string> WriteAll()
+    {
+        var problems = new List<string>();
         _s.DictateMode = (HotkeyMode)DictateMode.SelectedIndex;
         _s.DictateOutput = (DictateOutput)DictateOutput.SelectedIndex;
         _s.KeepInClipboard = KeepInClipboard.IsChecked == true;
         _s.NoteMode = (HotkeyMode)NoteMode.SelectedIndex;
         _s.Sounds = Sounds.IsChecked == true;
-        Startup.Set(StartWithWindows.IsChecked == true);
+        try { Startup.Set(StartWithWindows.IsChecked == true); }
+        catch (Exception ex) { App.Log(ex); problems.Add("Start with Windows: " + ex.Message); }
 
         var info = (ProviderInfo)Provider.SelectedItem;
         _s.Provider = info.Id;
         var ps = _s.For(info.Id);
-        ps.Model = ProviderInfo.ModelId(Model.Text);
+        ps.Model = ProviderInfo.ModelId(ComboValue(Model));
         if (info.CustomUrl) ps.BaseUrl = BaseUrl.Text.Trim();
-        SecretStore.Set(info.Id, ApiKey.Password.Trim());
+        if (!Transcriber.IsLocal(info.Id)) SetSecret(info.Id, ApiKey.Password.Trim(), problems);
         _s.Language = LanguageBox.Text.Trim().ToLowerInvariant();
         if (LocalDeviceBox.SelectedIndex >= 0) _s.LocalDevice = (LocalDevice)LocalDeviceBox.SelectedIndex;
 
@@ -273,17 +339,17 @@ public partial class SettingsWindow : Window
         var pinfo = (ProviderInfo)PolishProvider.SelectedItem;
         _s.PolishProvider = pinfo.Id;
         var pps = _s.PolishFor(pinfo.Id);
-        pps.Model = PolishModel.Text.Trim();
+        pps.Model = ComboValue(PolishModel);
         if (pinfo.CustomUrl) pps.BaseUrl = PolishUrl.Text.Trim();
-        if (pinfo.Id != "ollama-local") SecretStore.Set(Polisher.SecretName(pinfo.Id), PolishKey.Password.Trim());
+        if (pinfo.Id != "ollama-local") SetSecret(Polisher.SecretName(pinfo.Id), PolishKey.Password.Trim(), problems);
 
         var n = _s.Notes;
         n.QuickNotesEnabled = QnEnabled.IsChecked == true; n.QuickNotesFile = QnFile.Text.Trim();
         n.MarkdownEnabled = MdEnabled.IsChecked == true; n.MarkdownPath = MdPath.Text.Trim(); n.MarkdownLine = MdLine.Text;
         n.NotionEnabled = NotionEnabled.IsChecked == true; n.NotionPageId = NotionPage.Text.Trim();
-        SecretStore.Set("notion", NotionToken.Password.Trim());
+        SetSecret("notion", NotionToken.Password.Trim(), problems);
         n.JoplinEnabled = JoplinEnabled.IsChecked == true; n.JoplinFolderId = JoplinFolder.Text.Trim();
-        SecretStore.Set("joplin", JoplinToken.Password.Trim());
+        SetSecret("joplin", JoplinToken.Password.Trim(), problems);
         n.WebhookEnabled = WebhookEnabled.IsChecked == true; n.WebhookUrl = WebhookUrl.Text.Trim();
 
         _s.MicDevice = Mic.SelectedIndex - 1;
@@ -293,6 +359,7 @@ public partial class SettingsWindow : Window
 
         _s.Save();
         _app.ApplySettings();
+        return problems;
     }
 
     // ---- hotkey capture ----
